@@ -6,7 +6,7 @@ from multiaddr import multiaddr
 import trio
 import logging
 from libp2p import new_host
-import argparse
+
 from libp2p.crypto.secp256k1 import create_new_key_pair
 from libp2p.network.stream.net_stream_interface import INetStream
 from libp2p.peer.peerinfo import info_from_p2p_addr
@@ -19,13 +19,13 @@ PROTOCOL_ID = TProtocol("/muon/1.0.0")
 
 
 class Client:
-    def __init__(self,addressList) -> None:
+    def __init__(self) -> None:
         self.state_mutex = Lock()
         self.signature_mutex = Lock()
-        self.index_of_addressList = len(addressList) - 1
-        self.port = addressList[self.index_of_addressList]['port']
+        self.index_of_addressList = len(NODES_DICTIONARY) - 1
+        self.port = NODES_DICTIONARY[self.index_of_addressList]['port']
         self.host = None
-        self.addressList = addressList
+        self.addressList = NODES_DICTIONARY
         self.private_key = 'sdf'
         self.signatures = []
         self.state = 'start'
