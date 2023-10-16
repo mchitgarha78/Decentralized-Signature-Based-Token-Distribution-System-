@@ -1,7 +1,7 @@
 ### Install package requirements
-Add a venv to your project using `python3 -m venv vevn` command.
+Add a venv to your project using `python3 -m venv venv` command.
 
-Activate it `source venv/bin/activate'
+Activate it `source venv/bin/activate`
 
 And you can Install the packages via `pip install -r requirements.txt' command. Note that the libp2p package should install manually : https://github.com/libp2p/py-libp2p 
 
