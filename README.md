@@ -3,7 +3,11 @@ Add a venv to your project using `python3 -m venv venv` command.
 
 Activate it `source venv/bin/activate`
 
-And you can Install the packages via `pip install -r requirements.txt' command. Note that the libp2p package should install manually : https://github.com/libp2p/py-libp2p 
+And you can Install the packages via `pip install -r requirements.txt` command. Note that the libp2p package should install manually : https://github.com/libp2p/py-libp2p 
+
+And in some linux distributions, you should install `libgmp-dev` before installing py-libp2p by running this command:
+		
+	$ sudo apt install libgmp-dev
 
      
 ### Run project
