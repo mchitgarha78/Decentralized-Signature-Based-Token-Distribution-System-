@@ -98,18 +98,21 @@ class Client:
         await stream.close()
     async def __send_message_to(self, destination:multiaddr):
         logging.debug (f'Sending intial request to :{destination}')
-        maddr = multiaddr.Multiaddr(destination)
-        info = info_from_p2p_addr(maddr)
-        await self.host.connect(info)
-        
-        stream = await self.host.new_stream(info.peer_id, [PROTOCOL_ID])
+        try:
+            maddr = multiaddr.Multiaddr(destination)
+            info = info_from_p2p_addr(maddr)
+            await self.host.connect(info)
+            
+            stream = await self.host.new_stream(info.peer_id, [PROTOCOL_ID])
 
-        msg = f"START::{self.private_key}".encode()
+            msg = f"START::{self.private_key}".encode()
 
-        await stream.write(msg)
-        await stream.close()
-        
-        logging.debug(f"Sent: {msg}")
+            await stream.write(msg)
+            await stream.close()
+            
+            logging.debug(f"Sent: {msg}")
+        except Exception as e:
+            logging.error('',exc_info=True)
     
     
 
