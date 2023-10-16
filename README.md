@@ -8,13 +8,16 @@ And you can Install the packages via `pip install -r requirements.txt' command. 
      
 ### Run project
 To the project, run the following commands:
+
     $(venv) python main.py -n [node-number]
   
 We have 4 nodes in this project. The last node is client. So if you want to run client, you should run this command:
+
     $(venv) python main.py -n 3
 
 
 For other node you can run:
+
 	$(venv) python main.py -n [0 to 2]
 
 
