@@ -1,6 +1,6 @@
 from node import Node
-
-
+from client import Client
+import argparse
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -10,10 +10,10 @@ def main():
     node = None
     args = parser.parse_args()
     if 0 <= args.node_number <=2:
-        node = Node(args.node_number,NODES_DICTIONARY)
+        node = Node(args.node_number)
         node.start_node()
     elif args.node_number == 3:
-        node = Client(NODES_DICTIONARY)
+        node = Client()
         node.start_node()
 
 

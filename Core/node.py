@@ -5,26 +5,26 @@ from multiaddr import multiaddr
 import trio
 import logging
 from libp2p import new_host
-import argparse
 from libp2p.crypto.secp256k1 import create_new_key_pair
 from libp2p.network.stream.net_stream_interface import INetStream
 from libp2p.peer.peerinfo import info_from_p2p_addr
 from libp2p.typing import TProtocol
 from threading import Lock
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-
+from  web3 import Web3
+from eth_account.messages import encode_defunct
 PROTOCOL_ID = TProtocol("/muon/1.0.0")
 
 
 
 class Node:
-    def __init__(self,index_of_addressList,addressList) -> None:
+    def __init__(self,index_of_addressList) -> None:
         self.state_mutex = Lock()
         self.rand_int_mutex = Lock()
-        self.port = addressList[index_of_addressList]['port']
+        self.port = NODES_DICTIONARY[index_of_addressList]['port']
         self.index_of_addressList = index_of_addressList
         self.host = None
-        self.addressList = addressList
+        self.addressList = NODES_DICTIONARY
         self.rand_int = 0
         self.all_rand_ints = []
         self.state = 'start'
@@ -42,7 +42,6 @@ class Node:
         
 
     def set_rand_int(self,var):
-        
         self.rand_int_mutex.acquire()
         self.all_rand_ints = var
         self.rand_int_mutex.release()
@@ -63,6 +62,7 @@ class Node:
     async def __run_check_signature(self):
         while True:
             if self.get_state() == 'pending':
+                chkFailed = False
                 for i in range(10):
                     rand_ints = self.get_rand_int()
                     if len(rand_ints) == len(self.addressList)- 1 and self.get_state()=='pending':
@@ -84,15 +84,14 @@ class Node:
     async def __run_server(self, port: int) -> None:
         localhost_ip = "127.0.0.1"
         listen_addr = multiaddr.Multiaddr(f"/ip4/0.0.0.0/tcp/{port}")
-        
         secret = self.addressList[self.index_of_addressList]['secret']
         self.host = new_host(key_pair=create_new_key_pair(secret))
         async with self.host.run(listen_addrs=[listen_addr]):
-
             logging.debug(f"I am {self.host.get_id().to_string()}")
             self.host.set_stream_handler(PROTOCOL_ID, self.__echo_stream_handler)
             logging.debug("Node is up!...")
             await trio.sleep_forever()
+            
     async def __echo_stream_handler(self, stream: INetStream) -> None:
         try:
             msg = await stream.read()
@@ -107,7 +106,6 @@ class Node:
                 msg = msg.split('::')
                 self.client_privatekey = msg[1]
                 await self.__start_action()
-            
             await stream.close()
         except Exception as e:
             logging.error('',exc_info=True)
