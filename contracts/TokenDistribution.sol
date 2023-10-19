@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
+
 
 contract SignatureDistribution {
     //mapping(address => bool) public isSigned;
     address tokenOwner;
     IERC20  token;
-    uint256 modulo;
-
-    constructor(IERC20 _tokenAddress, uint256 _modulo) {
+    mapping (address => bool) nodeWallets;
+    constructor(IERC20 _tokenAddress) {
         token = _tokenAddress;
         tokenOwner = msg.sender;
-        modulo = _modulo;
+        nodeWallets[0xDbfd7D50ed5D8CfA61eed64267FABE02d70231Db] = true;
+        nodeWallets[0x1D1821d08ADA5aF3F48119BbBf193C865da020dE] = true;
+        nodeWallets[0x1050297611775cC7ec729572C217f774CE9e53f7] = true;
     }
 
     function splitSignature(
@@ -30,17 +32,19 @@ contract SignatureDistribution {
 
     function verifyAndDistribute(
         uint256 _amount,
-        bytes32 _messageHash,
-        bytes memory _signature,
-        address _signer
+        bytes memory _signature
     ) public {
-        (bytes32 _r, bytes32 _s, uint8 _v) = splitSignature(_signature);
-        address signer = ecrecover(_messageHash, _v, _r, _s);
-        uint256 balance = token.balanceOf(msg.sender);
+        require(nodeWallets[msg.sender] == true, "Invalid signer.");
+        
+        bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, _amount));
+        bytes32 ethSignedMessageHash = keccak256(
+                abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        (bytes32 r, bytes32 s, uint8 v) = splitSignature(_signature);
+        address signer = ecrecover(ethSignedMessageHash, v, r, s);
+        uint256 balance = token.balanceOf(tokenOwner);
 
 
-        require(signer == _signer, "Invalid signature");
-        require(msg.sender == tokenOwner, "Invalid Distributor.");
+        require(signer == msg.sender, "Invalid signature");
         require(balance > _amount, "Insufficient balance.");
         
         // Transfer tokens to the signer
