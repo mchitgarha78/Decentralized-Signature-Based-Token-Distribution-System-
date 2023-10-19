@@ -1,6 +1,6 @@
 import random
 import time
-from configs import *
+from coreP2P.configs import *
 from multiaddr import multiaddr
 import trio
 import logging
@@ -11,8 +11,6 @@ from libp2p.peer.peerinfo import info_from_p2p_addr
 from libp2p.typing import TProtocol
 from threading import Lock
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-from  web3 import Web3
-from eth_account.messages import encode_defunct
 PROTOCOL_ID = TProtocol("/muon/1.0.0")
 
 
