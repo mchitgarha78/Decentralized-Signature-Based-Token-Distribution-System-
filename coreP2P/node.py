@@ -1,6 +1,6 @@
 import random
 import time
-from coreP2P.configs import *
+from utils.nodeConfigs import *
 from multiaddr import multiaddr
 import trio
 import logging
@@ -11,12 +11,15 @@ from libp2p.peer.peerinfo import info_from_p2p_addr
 from libp2p.typing import TProtocol
 from threading import Lock
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
+
+from utils.web3Utils import Web3Utils
 PROTOCOL_ID = TProtocol("/muon/1.0.0")
 
 
 
 class Node:
     def __init__(self,index_of_addressList) -> None:
+        self.web3Utils = Web3Utils('',NODES_DICTIONARY[index_of_addressList]['privatekey'])
         self.state_mutex = Lock()
         self.rand_int_mutex = Lock()
         self.port = NODES_DICTIONARY[index_of_addressList]['port']
@@ -26,7 +29,8 @@ class Node:
         self.rand_int = 0
         self.all_rand_ints = []
         self.state = 'start'
-        self.client_privatekey = ''
+
+
     def get_state(self):
         self.state_mutex.acquire()
         x = self.state
@@ -70,7 +74,9 @@ class Node:
                         for i in range(len(rand_ints)):
                             sum += rand_ints[i]
                         destination = f'/ip4/127.0.0.1/tcp/{self.addressList[ii]["port"]}/p2p/{self.addressList[ii]["peer_id"]}'
-                        await self.__send_message_to(destination,f'RES::{sum}')
+                        public_key = self.web3Utils.public_key
+                        signed_message = self.web3Utils.create_signature(public_key, sum)
+                        await self.__send_message_to(destination,f'RES::{sum}::{public_key}::{signed_message.signature.hex()}')
                         self.set_rand_int([])
                         break
                     await trio.sleep(GET_MESSAGE_TIMEOUT)
@@ -100,9 +106,7 @@ class Node:
                 rand_ints = self.get_rand_int()
                 rand_ints.append(int(msg[1]))
                 self.set_rand_int(rand_ints)
-            elif msg[:len('START::')] == 'START::'  and self.get_state() == 'start':
-                msg = msg.split('::')
-                self.client_privatekey = msg[1]
+            elif msg[:len('START')] == 'START'  and self.get_state() == 'start':
                 await self.__start_action()
             await stream.close()
         except Exception as e:
@@ -125,6 +129,7 @@ class Node:
     
     def start_node(self):
         trio.run(self.__run)
+    
     async def __start_action(self):
         if self.get_state() == 'start':
             self.rand_int = random.randint(1,20000)
