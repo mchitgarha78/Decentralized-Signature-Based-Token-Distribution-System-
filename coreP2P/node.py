@@ -1,3 +1,4 @@
+from queue import Queue
 import random
 import time
 from utils.nodeConfigs import *
@@ -29,8 +30,8 @@ class Node:
         self.rand_int = 0
         self.all_rand_ints = []
         self.state = 'start'
-
-
+        self.message_queue = Queue()
+    
     def get_state(self):
         self.state_mutex.acquire()
         x = self.state
@@ -54,12 +55,28 @@ class Node:
         self.rand_int_mutex.release()
         return var
     
-
+    async def __message_handler(self):
+        while True:
+            if self.message_queue.empty():
+                await trio.sleep(0.1)
+            else:
+                msg = self.message_queue.get()
+                try:
+                    if msg[:len('RND::')] == 'RND::' and self.get_state() == 'pending':
+                        msg = msg.split('::')
+                        rand_ints = self.get_rand_int()
+                        rand_ints.append(int(msg[1]))
+                        self.set_rand_int(rand_ints)
+                    elif msg[:len('START')] == 'START'  and self.get_state() == 'start':
+                        await self.__start_action()
+                except Exception as e:
+                    logging.error('',exc_info=True)
+        
     async def __run(self):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(self.__run_server,self.port)
             nursery.start_soon(self.__run_check_signature)
-
+            nursery.start_soon(self.__message_handler)
 
     async def __run_check_signature(self):
         while True:
@@ -97,20 +114,11 @@ class Node:
             await trio.sleep_forever()
             
     async def __echo_stream_handler(self, stream: INetStream) -> None:
-        try:
-            msg = await stream.read()
-            msg = msg.decode(encoding='utf-8')
-            logging.debug(f'Got message: {msg}')
-            if msg[:len('RND::')] == 'RND::' and self.get_state() == 'pending':
-                msg = msg.split('::')
-                rand_ints = self.get_rand_int()
-                rand_ints.append(int(msg[1]))
-                self.set_rand_int(rand_ints)
-            elif msg[:len('START')] == 'START'  and self.get_state() == 'start':
-                await self.__start_action()
-            await stream.close()
-        except Exception as e:
-            logging.error('',exc_info=True)
+        msg = await stream.read()
+        msg = msg.decode(encoding='utf-8')
+        logging.debug(f'Got message: {msg}')
+        self.message_queue.put(msg)
+        await stream.close()
         
     async def __send_message_to(self, destination:multiaddr,message):
         try:

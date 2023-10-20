@@ -5,6 +5,7 @@ from utils.clientConfig import *
 from multiaddr import multiaddr
 import trio
 import logging
+from queue import Queue
 from libp2p import new_host
 
 from libp2p.crypto.secp256k1 import create_new_key_pair
@@ -30,7 +31,7 @@ class Client:
         self.addressList = CLIENT_DICTIONARY
         self.node_data = []
         self.state = 'start'
-        self.client_privatekey = ''
+        self.message_queue = Queue()
     def get_state(self):
         self.state_mutex.acquire()
         x = self.state
@@ -57,12 +58,36 @@ class Client:
         # while True:
             await trio.sleep(3)
             await self.__start_action()
+
+    async def __message_handler(self):
+        while True:
+            if self.message_queue.empty():
+                await trio.sleep(0.1)
+            else:
+                msg = self.message_queue.get()
+                try:
+                    if msg[:len('RES::')] == 'RES::' and self.get_state() == 'pending':
+                        msg = msg.split('::')
+                        if self.web3Utils.verify_signer(msg[2],int(msg[1]),msg[3]):
+                            logging.debug('Message verified...')
+                            nodes_data = self.get_node_data()
+                            if len(nodes_data)==0 or \
+                                (len(nodes_data) == 1 and nodes_data[0][0] == msg[1]):
+                                nodes_data.append(msg[1:])
+                                self.set_node_data(nodes_data)
+                            if len(nodes_data) >= (len(self.addressList)-1)//2+1:
+                                self.set_state('start')
+                                logging.debug(f'Nodes data got successfully: {nodes_data}')
+                                self.__send_transaction_to_contract()
+                except Exception as e:
+                    logging.error('',exc_info=True)
+                
             
     async def __run(self):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(self.__run_server,self.port)
             nursery.start_soon(self.__send_requests)
-                
+            nursery.start_soon(self.__message_handler) 
     def start_node(self):
         trio.run(self.__run)
     def set_state(self, state):
@@ -88,25 +113,14 @@ class Client:
             msg = await stream.read()
             msg = msg.decode(encoding='utf-8')
             logging.debug(f'Got message: {msg}')
-            await trio.sleep(5)
-            if msg[:len('RES::')] == 'RES::' and self.get_state() == 'pending':
-                msg = msg.split('::')
-                if self.web3Utils.verify_signer(msg[2],int(msg[1]),msg[3]):
-                    logging.debug('Message verified...')
-                    nodes_data = self.get_node_data()
-                    if len(nodes_data)==0 or \
-                        (len(nodes_data) == 1 and nodes_data[0][0] == msg[1]):
-                        nodes_data.append(msg[1:])
-                        self.set_node_data(nodes_data)
-                    if len(nodes_data) >= (len(self.addressList)-1)//2+1:
-                        self.set_state('start')
-                        logging.debug(f'Nodes data got successfully: {nodes_data}')
-                        self.__send_transaction_to_contract()
+            self.message_queue.put(msg)
             await stream.close()
         except Exception as e:
             logging.error("",exc_info=True)
     
     def __send_transaction_to_contract(self):
+        logging.debug('hi!')
+        return True
         '''
 Nodes data got successfully: 
 [['20875', '0xDbfd7D50ed5D8CfA61eed64267FABE02d70231Db', 
