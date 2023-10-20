@@ -6,43 +6,43 @@ import logging
 
 class Web3Utils:
     def __init__(self,provider_url:str, private_key:str) -> None:
-        self.web3 = Web3(Web3.HTTPProvider(provider_url))
-        self.public_key = self.web3.eth.account.from_key(private_key).address
+        self.__web3 = Web3(Web3.HTTPProvider(provider_url))
+        self.public_key = self.__web3.eth.account.from_key(private_key).address
         self.private_key = private_key 
 
 
     def check_connection(self):
-        return self.web3.is_connected(show_traceback=True)
+        return self.__web3.is_connected(show_traceback=True)
 
     def verify_signer(self,signer_address, amount, signature):
-        h = self.web3.solidity_keccak(['address', 'uint256'], [signer_address, amount])
+        h = self.__web3.solidity_keccak(['address', 'uint256'], [signer_address, amount])
         message = encode_defunct(hexstr= h.hex())
-        recoverd_address = self.web3.eth.account.recover_message(message,signature =bytes.fromhex(signature[2:]))
+        recoverd_address = self.__web3.eth.account.recover_message(message,signature =bytes.fromhex(signature[2:]))
         return recoverd_address==signer_address
     
 
     def create_signature(self, signer_address, amount):
-        h = self.web3.solidity_keccak(['address', 'uint256'], [signer_address, amount])
+        h = self.__web3.solidity_keccak(['address', 'uint256'], [signer_address, amount])
         message = encode_defunct(hexstr= h.hex())
-        return self.web3.eth.account.sign_message(message, self.private_key)
+        return self.__web3.eth.account.sign_message(message, self.private_key)
 
-    def function_send_transaction(self, contract_address, function_name,abi, **kwargs):
+    def function_send_transaction(self, contract_address, function_name, abi, **kwargs):
         try:
-            nonce = self.web3.eth.get_transaction_count(self.public_key)
-            contract = self.web3.eth.contract(address=contract_address, abi=abi)
-            chain_id = self.web3.eth.chain_id
+            nonce = self.__web3.eth.get_transaction_count(self.public_key)
+            contract = self.__web3.eth.contract(address=contract_address, abi=abi)
+            chain_id = self.__web3.eth.chain_id
             functions = contract.functions
             if hasattr(functions, function_name) and \
                 callable(getattr(functions, function_name)):
                 method_to_call = getattr(functions, function_name)
             else:
                 return None
-            call_function = method_to_call(**kwargs).buildTransaction(
+            call_function = method_to_call(**kwargs).build_transaction(
                 {"chainId": chain_id, "from": self.public_key, "nonce": nonce})
             
-            signed_tx = self.web3.eth.account.sign_transaction(call_function, private_key=self.private_key)
-            send_tx = self.web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-            tx_receipt = self.web3.eth.wait_for_transaction_receipt(send_tx)
+            signed_tx = self.__web3.eth.account.sign_transaction(call_function, private_key=self.private_key)
+            send_tx = self.__web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            tx_receipt = self.__web3.eth.wait_for_transaction_receipt(send_tx)
         except Exception as e:
             logging.error("",exc_info=True)
             return None
@@ -51,7 +51,7 @@ class Web3Utils:
     
     def function_call(self, contract_address, function_name,abi, **kwargs):
         try:
-            contract = self.web3.eth.contract(address=contract_address, abi=abi)
+            contract = self.__web3.eth.contract(address=contract_address, abi=abi)
             functions = contract.functions
             if hasattr(functions, function_name) and \
                 callable(getattr(functions, function_name)):

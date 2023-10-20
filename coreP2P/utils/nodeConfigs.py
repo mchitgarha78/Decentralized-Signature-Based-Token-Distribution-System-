@@ -1,4 +1,5 @@
-GET_MESSAGE_TIMEOUT = 0.5 # retrying 10 times for this delay about getting random number from all other nodes.
+MESSAGE_TIMEOUT = 0.5 # retrying NUMBER_OF_CHECK_MESSAGE_RECEIVED times for this delay about getting random number from all other nodes.
+NUMBER_OF_RETRY_MESSAGE_RECEIVED = 10
 NODES_DICTIONARY = [
     {
         'port':8000 , 
