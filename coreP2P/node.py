@@ -12,8 +12,8 @@ from libp2p.peer.peerinfo import info_from_p2p_addr
 from libp2p.typing import TProtocol
 from threading import Lock
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-
-from utils.web3Utils import Web3Utils
+from utils.threadSafeList import ThreadSafeList
+from utils.web3Utils import Web3Utils 
 PROTOCOL_ID = TProtocol("/muon/1.0.0")
 
 
@@ -21,39 +21,16 @@ PROTOCOL_ID = TProtocol("/muon/1.0.0")
 class Node:
     def __init__(self,index_of_addressList) -> None:
         self.__web3Utils = Web3Utils('',NODES_DICTIONARY[index_of_addressList]['privatekey'])
-        self.__state_mutex = Lock()
-        self.__rand_int_mutex = Lock()
         self.__port = NODES_DICTIONARY[index_of_addressList]['port']
         self.__index_of_addressList = index_of_addressList
         self.__host = None
         self.__addressList = NODES_DICTIONARY
-        self.__rand_int = 0
-        self.__all_rand_ints = []
-        self.__state = 'start'
+        self.__all_rand_ints = ThreadSafeList()
+        self.__state = ThreadSafeList()
+        trio.run(self.__state.append, 'start')
         self.__message_queue = Queue()
     
-    def __get_state(self):
-        self.__state_mutex.acquire()
-        x = self.__state
-        self.__state_mutex.release()
-        return x
-    
-    def __set_state(self, state):
-        self.__state_mutex.acquire()
-        self.__state = state
-        self.__state_mutex.release()
-        
 
-    def __set_rand_int(self,var):
-        self.__rand_int_mutex.acquire()
-        self.__all_rand_ints = var
-        self.__rand_int_mutex.release()
-        
-    def __get_rand_int(self):
-        self.__rand_int_mutex.acquire()
-        var = self.__all_rand_ints
-        self.__rand_int_mutex.release()
-        return var
     
     async def __message_handler(self):
         while True:
@@ -62,15 +39,14 @@ class Node:
             else:
                 msg = self.__message_queue.get()
                 try:
-                    if msg[:len('RND::')] == 'RND::' and self.__get_state() == 'pending':
+                    if msg[:len('RND::')] == 'RND::' and (await self.__state.get_item(0)) == 'pending':
                         msg = msg.split('::')
-                        rand_ints = self.__get_rand_int()
-                        rand_ints.append(int(msg[1]))
-                        self.__set_rand_int(rand_ints)
-                    elif msg[:len('START')] == 'START'  and self.__get_state() == 'start':
+                        await self.__all_rand_ints.append(int(msg[1]))
+                        
+                    elif msg[:len('START')] == 'START'  and (await self.__state.get_item(0)) == 'start':
                         await self.__start_seding_message_to_all_nodes()
                 except Exception as e:
-                    logging.error('',exc_info=True)
+                    logging.error(f'Error in message handler:{e}')
         
     async def __run(self):
         async with trio.open_nursery() as nursery:
@@ -80,14 +56,14 @@ class Node:
 
     async def __run_check_all_rand_int_received(self):
         while True:
-            if self.__get_state() == 'pending':
+            if (await self.__state.get_item(0)) == 'pending':
                 chk = False
                 for i in range(NUMBER_OF_RETRY_MESSAGE_RECEIVED):
-                    rand_ints = self.__get_rand_int()
-                    if (len(rand_ints) == len(self.__addressList)- 1 and self.__get_state()=='pending') or \
+                    rand_ints = await self.__all_rand_ints.get_list()
+                    if (len(rand_ints) == len(self.__addressList)- 1 and (await self.__state.get_item(0))=='pending') or \
                        (len(rand_ints) == (len(self.__addressList)-1)//2+1 and i == NUMBER_OF_RETRY_MESSAGE_RECEIVED-1):
                         chk = True
-                        self.__set_state('start')
+                        await self.__state.set_item(0,'start')
                         ii = len(self.__addressList)-1
                         sum = 0
                         for i in range(len(rand_ints)):
@@ -96,14 +72,14 @@ class Node:
                         public_key = self.__web3Utils.public_key
                         signed_message = self.__web3Utils.create_signature(public_key, sum)
                         await self.__send_message_to(destination,f'RES::{sum}::{public_key}::{signed_message.signature.hex()}')
-                        self.__set_rand_int([])
+                        await self.__all_rand_ints.clear()
                         break
                     await trio.sleep(MESSAGE_TIMEOUT)
-                self.__set_state('start')
+                await self.__state.set_item(0,'start')
                 if not chk:
                     ii = len(self.__addressList)-1
                     destination = f'/ip4/127.0.0.1/tcp/{self.__addressList[ii]["port"]}/p2p/{self.__addressList[ii]["peer_id"]}'
-                    await self.__send_message_to(destination, f'ERR::400::Not enought number from other nodes received.')
+                    await self.__send_message_to(destination, f'ERR::400::{self.__host.get_id().to_string()}::Not enought number from other nodes received.')
                     
             else:
                 await trio.sleep(0.4)
@@ -138,24 +114,24 @@ class Node:
             await stream.write(message.encode())
             await stream.close()
         except Exception as e:
-            logging.error('',exc_info=True)
+            logging.warning(f"Unable to send initial request to {destination}: {e}")
     
     
     def start_node(self):
         trio.run(self.__run)
     
     async def __start_seding_message_to_all_nodes(self):
-        if self.__get_state() == 'start':
-            self.__rand_int = random.randint(1,20000)
-            self.__set_rand_int([self.__rand_int])
-            self.__set_state('pending')
-            logging.debug(f'random int generated:{self.__rand_int}')
+        if (await self.__state.get_item(0)) == 'start':
+            rand_int = random.randint(1,2000)
+            await self.__all_rand_ints.append(rand_int)
+            await self.__state.set_item(0,'pending')
+            logging.debug(f'random int generated:{rand_int}')
             async with trio.open_nursery() as nursery:
                 for i in range(len(self.__addressList)-1):
                     if i != self.__index_of_addressList:
                         destination = f'/ip4/127.0.0.1/tcp/{self.__addressList[i]["port"]}/p2p/{self.__addressList[i]["peer_id"]}'
                         #logging.debug(f'starting soon send message to.. number {i}')
-                        nursery.start_soon(self.__send_message_to, destination,f'RND::{self.__rand_int}')
+                        nursery.start_soon(self.__send_message_to, destination,f'RND::{rand_int}')
 
     
     def stop_node():

@@ -44,7 +44,7 @@ class Web3Utils:
             send_tx = self.__web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             tx_receipt = self.__web3.eth.wait_for_transaction_receipt(send_tx)
         except Exception as e:
-            logging.error("",exc_info=True)
+            logging.error(f'ERROR: web3Utils function send transaction:{e}')
             return None
         logging.debug(f'tx_receipt:{tx_receipt}')
         return True
@@ -60,7 +60,7 @@ class Web3Utils:
                 return None
             result = method_to_call(**kwargs).call()
         except Exception as e:
-            logging.error('',exc_info=True)
+            logging.error(f'ERROR: web3Utils function call:{e}')
             return None
         logging.debug(f'raw data:{result}')
         return result
