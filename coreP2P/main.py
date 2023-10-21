@@ -1,5 +1,5 @@
-from Core.node import Node
-from Core.client import Client
+from node import Node
+from client import Client
 import argparse
 def main():
     parser = argparse.ArgumentParser()
