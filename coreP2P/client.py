@@ -68,6 +68,7 @@ class Client:
                                         await self.__send_transaction_to_contract()
                                     except Exception as e:
                                         logging.error(f'Error in sending transaction:{e}')
+                                        
                     elif msg[:len('ERR::')] == 'ERR::' and (await self.__state.get_item(0)) == 'pending':
                         msg = msg.split('::')
                         if msg[1] == '400':
@@ -83,6 +84,7 @@ class Client:
             nursery.start_soon(self.__wait_for_initating_requests)
             nursery.start_soon(self.__message_handler)
             nursery.start_soon(self.__error_handler)
+            await trio.sleep_forever()
     
     async def __error_handler(self):
         while True:
@@ -102,7 +104,7 @@ class Client:
                 if not chk:
                     await self.__state.set_item(0,'start')
                     await self.__lost_connection_node.clear()
-                    logging.error(f'ERROR 402 : Timeout error . Aborting request...')
+                    #logging.error(f'ERROR 402 : Timeout error . Aborting request...')
                     
             else:
                 await trio.sleep(0.4)
@@ -133,17 +135,18 @@ class Client:
         except Exception as e:
             logging.error(f"Error in __echo_stream_handler: {e}")
     
-    def __send_transaction_to_contract(self):
+    async def __send_transaction_to_contract(self):
         fixedList = []
+        nodes_data = await self.__node_data.get_list()
         for _dict in self.__addressList:
             chk = False
-            for _node in self.__node_data:
+            for _node in nodes_data:
                 if _node[1] == _dict.get('publickey'):
                     fixedList.append(_node)
                     chk = True
                     break
             if not chk:
-                fixedList.append(self.__node_data[0])
+                fixedList.append(nodes_data[0])
         
         logging.debug(f'fixedList:{fixedList}')
         self.__web3Utils.function_send_transaction(TOKEN_DISTRIBUTOR_CONTRACT_ADDRESS,

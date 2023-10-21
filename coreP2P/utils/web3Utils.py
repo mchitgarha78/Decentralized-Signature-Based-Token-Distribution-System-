@@ -38,13 +38,14 @@ class Web3Utils:
             else:
                 return None
             call_function = method_to_call(**kwargs).build_transaction(
-                {"chainId": chain_id, "from": self.public_key, "nonce": nonce})
+                {"chainId": chain_id, "from": self.public_key, "nonce": nonce
+                 ,"gas":3000000})
             
             signed_tx = self.__web3.eth.account.sign_transaction(call_function, private_key=self.private_key)
             send_tx = self.__web3.eth.send_raw_transaction(signed_tx.rawTransaction)
             tx_receipt = self.__web3.eth.wait_for_transaction_receipt(send_tx)
         except Exception as e:
-            logging.error(f'ERROR: web3Utils function send transaction:{e}')
+            logging.error(f'ERROR: web3Utils function send transaction:{e}',exc_info=True)
             return None
         logging.debug(f'tx_receipt:{tx_receipt}')
         return True

@@ -53,6 +53,7 @@ class Node:
             nursery.start_soon(self.__run_server,self.__port)
             nursery.start_soon(self.__run_check_all_rand_int_received)
             nursery.start_soon(self.__message_handler)
+            await trio.sleep_forever()
 
     async def __run_check_all_rand_int_received(self):
         while True:
