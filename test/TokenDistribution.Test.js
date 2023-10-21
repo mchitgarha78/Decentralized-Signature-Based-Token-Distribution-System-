@@ -10,15 +10,26 @@ describe("SignatureDistribution", function () {
 	before(async function () {
 		// Deploy ERC20 token
 		const Token = await ethers.getContractFactory("MyToken");
+
+		console.log("Deploying Token...");
 		tokenInstance = await Token.deploy("Mammad Coin","MMC");
 		await tokenInstance.deployed();
+		console.log("Deployed!");
+
+
+
 		// Deploy SignatureDistribution contract
+		console.log("Deploying Token Distributor");
 		const SignatureDistribution = await ethers.getContractFactory("SignatureDistribution");
 		contractInstance = await SignatureDistribution.deploy(tokenInstance.address);
 		await contractInstance.deployed();
-		//grant the contract to transfer tokens.
-		await tokenInstance.approve(contractInstance.address,10000000);
+		console.log("Deployed!");
 
+		//grant the contract to transfer tokens.
+		console.log("Approving the Token Distributor contract for Token contract ")
+		promise = await tokenInstance.approve(contractInstance.address,10000000);
+		await promise.wait();
+		console.log("Approved!");
 		[owner,addr1,addr2,addr3] = await ethers.getSigners();
 		
   	});
@@ -46,14 +57,14 @@ describe("SignatureDistribution", function () {
 		packed = web3.utils.soliditySha3({t:'address',v:addr3.address},{t:'uint256',v:amount});
 		const addr3SignedMessage = web3.eth.accounts.sign(packed,addr3Pvk);
 		
-		
+		console.log("Verifing node signers and Distribute tokens to sender with amount ",amount);
 		// Verify and distribute tokens
-		await contractInstance.connect(addr1).verifyAndDistribute(amount, 
+		promise = await contractInstance.connect(addr2).verifyAndDistribute(amount, 
 			[addr1SignedMessage.signature, addr2SignedMessage.signature, addr3SignedMessage.signature]);
-		
-
+		await promise.wait();
+		console.log("Distributed!");
 		const finalOwnerBalance = await tokenInstance.balanceOf(owner.address);
-		const initialSignerBalance = await tokenInstance.balanceOf(addr1.address);
+		const initialSignerBalance = await tokenInstance.balanceOf(addr2.address);
 
 		// Check that the expected amount was distributed
 		expect(initialOwnerBalance).to.equal(finalOwnerBalance.add(amount));
@@ -61,14 +72,12 @@ describe("SignatureDistribution", function () {
 	});
 
 	it("should revert on invalid signatures", async function () {
+
+		// some invalid private keys 
 		const addr1Pvk = '0x782b7ef892b79c6482ebd1a48dc90b3de8d4b5be3d969965304352624db13b61';
 		const addr2Pvk = '0xb23f0017848a88f2ee740013b14a42b3c020b4e0b3e956d09029006904c34ea2';
 		const addr3Pvk = '0x02aaa225c512866e07dcc9d025acf73afdc10c2bf05c8f7866e46a2760fc89f4';
 
-		// Get the initial balance of the owner
-		const initialOwnerBalance = await tokenInstance.balanceOf(owner.address);
-		
-		
 		const amount = 250;
 		
 		
@@ -83,7 +92,7 @@ describe("SignatureDistribution", function () {
 		const addr3SignedMessage = web3.eth.accounts.sign(packed,addr3Pvk);
 		
 		await expect(
-			 contractInstance.connect(addr1).verifyAndDistribute(amount, 
+			 contractInstance.connect(addr2).verifyAndDistribute(amount, 
 				[addr1SignedMessage.signature, addr2SignedMessage.signature, addr3SignedMessage.signature]
     	)).to.be.reverted;
   	});

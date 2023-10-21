@@ -1,7 +1,7 @@
 
 import random
 import time
-from utils.clientConfig import *
+from configs.clientConfig import *
 from multiaddr import multiaddr
 import trio
 import logging
@@ -131,7 +131,7 @@ class Client:
             self.__message_queue.put(msg)
             await stream.close()
         except Exception as e:
-            logging.error("",exc_info=True)
+            logging.error(f"Error in __echo_stream_handler: {e}")
     
     def __send_transaction_to_contract(self):
         fixedList = []

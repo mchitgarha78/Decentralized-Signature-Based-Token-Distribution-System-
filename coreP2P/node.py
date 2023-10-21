@@ -1,7 +1,7 @@
 from queue import Queue
 import random
 import time
-from utils.nodeConfigs import *
+from configs.nodeConfigs import *
 from multiaddr import multiaddr
 import trio
 import logging

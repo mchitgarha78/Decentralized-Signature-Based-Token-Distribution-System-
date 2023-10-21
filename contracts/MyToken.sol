@@ -11,7 +11,6 @@ contract MyToken is ERC20 {
         _mint(msg.sender, 1000000 * 10 ** 18); // Mint 1,000,000 tokens to the contract creator
     }
 
-    // This function allows the owner to mint more tokens
     function mint(address to, uint256 amount) public {
         require(msg.sender == owner, "Only the owner can mint tokens");
         _mint(to, amount);
