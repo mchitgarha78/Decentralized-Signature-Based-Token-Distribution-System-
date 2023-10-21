@@ -6,10 +6,24 @@ module.exports =
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
-
-      accounts: ["0xb21f0017848a88f2ee740013b14a42b3c020b4e0b3e956d09029006904c34ea2"
-                , "0xcc5921003d3001f16d08ed6a9b574f23fdaef8626468100def605cdc0eff75c3"],
-      gas: 3000000
+      accounts: [
+        {
+          privateKey: '0x9101b918d5a709eae09264397b65f815897ee345f1c087a0980bf8dd2253447e',
+          balance: '1000000000000000000',
+        },
+        {
+          privateKey: '0x78bb7ef892b79c6482ebd1a48dc90b3de8d4b5be3d969965304352624db13b61',
+          balance: '1000000000000000000',
+        },
+        {
+          privateKey: '0xb21f0017848a88f2ee740013b14a42b3c020b4e0b3e956d09029006904c34ea2',
+          balance: '1000000000000000000',
+        },
+        {
+          privateKey: '0x02daa225c512866e07dcc9d025acf73afdc10c2bf05c8f7866e46a2760fc89f4',
+          balance: '1000000000000000000',
+        },
+      ],
     },
     sepolia: {
       url: "https://ethereum-sepolia.publicnode.com",

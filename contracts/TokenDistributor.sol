@@ -6,7 +6,6 @@ import "hardhat/console.sol";
 
 
 contract SignatureDistribution {
-    //mapping(address => bool) public isSigned;
     address tokenOwner;
     IERC20  token;
     address [] nodeWallets;
