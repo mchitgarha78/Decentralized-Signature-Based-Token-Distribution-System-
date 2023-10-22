@@ -31,7 +31,7 @@ If you want to change any configurations about nodes or client, you can change t
 
 For example, `PROVIDER_URL` can be changed in `clientConfig.py` file. To connect to hardhat local test network, it can be set as :
 
-    PROTVIEDER_URL = 'http://127.0.0.1:8545'
+    PROVIDER_URL = 'http://127.0.0.1:8545'
 
 And hardhat can be run with:
     
