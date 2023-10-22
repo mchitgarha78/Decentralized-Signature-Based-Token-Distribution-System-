@@ -36,7 +36,7 @@ class Web3Utils:
                 return None
             call_function = method_to_call(**kwargs).build_transaction(
                 {"chainId": chain_id, "from": self.public_key, "nonce": nonce
-                 ,"gas":3000000, "gasPrice": 1})
+                 ,"gas":3000000,})
             
             signed_tx = self.__web3.eth.account.sign_transaction(call_function, private_key=self.private_key)
             send_tx = self.__web3.eth.send_raw_transaction(signed_tx.rawTransaction)
