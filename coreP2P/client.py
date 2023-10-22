@@ -138,7 +138,8 @@ class Client:
     async def __send_transaction_to_contract(self):
         fixedList = []
         nodes_data = await self.__node_data.get_list()
-        for _dict in self.__addressList:
+        for i in range(len(self.__addressList)-1):
+            _dict = self.__addressList[i]
             chk = False
             for _node in nodes_data:
                 if _node[1] == _dict.get('publickey'):

@@ -1,9 +1,6 @@
 from web3 import Web3
 from eth_account.messages import encode_defunct
 import logging
-#from .clientConfig import TOKEN_ABI
-
-
 class Web3Utils:
     def __init__(self,provider_url:str, private_key:str) -> None:
         self.__web3 = Web3(Web3.HTTPProvider(provider_url))
@@ -39,7 +36,7 @@ class Web3Utils:
                 return None
             call_function = method_to_call(**kwargs).build_transaction(
                 {"chainId": chain_id, "from": self.public_key, "nonce": nonce
-                 ,"gas":3000000})
+                 ,"gas":3000000, "gasPrice": 1})
             
             signed_tx = self.__web3.eth.account.sign_transaction(call_function, private_key=self.private_key)
             send_tx = self.__web3.eth.send_raw_transaction(signed_tx.rawTransaction)
@@ -70,15 +67,26 @@ class Web3Utils:
 
 
 if __name__ == '__main__':
-    public_key = '0x1D1821d08ADA5aF3F48119BbBf193C865da020dE'
-    private_key = '0xb21f0017848a88f2ee740013b14a42b3c020b4e0b3e956d09029006904c34ea2'
+    fixedList = [[2176, '0xDbfd7D50ed5D8CfA61eed64267FABE02d70231Db', '0xddcc0ff8ea5a1b2d535bca582f9f2cded607d39e7b8c950f23789544ef0b7e753bc2faec13c7b27b0f0e6a29cfb6b804622a62a1ae79560910d89b3acecd31511b'],
+               [2176, '0x1D1821d08ADA5aF3F48119BbBf193C865da020dE', '0xcfbd0ba17606fea1ac166c8d14cbfc93f97846b7c0a533a57ae93771693c3f8534f257cbe1c5d5b25bb7f388b4acf39e73de902951978f1c44a6c74106bf18ea1c'],
+               [2176, '0x1D1821d08ADA5aF3F48119BbBf193C865da020dE', '0xcfbd0ba17606fea1ac166c8d14cbfc93f97846b7c0a533a57ae93771693c3f8534f257cbe1c5d5b25bb7f388b4acf39e73de902951978f1c44a6c74106bf18ea1c']]
+    #public_key = '0x1D1821d08ADA5aF3F48119BbBf193C865da020dE'
+    private_key = CLIENT_PRIVATEKEY
     x = Web3Utils('https://ethereum-sepolia.publicnode.com',
                   private_key)
+    # x = Web3Utils('http://127.0.0.1:8545',
+    #               private_key)
     print (x.public_key)
-
-    t = x.create_signature(public_key,250).signature.hex()
-    print (x.verify_signer(public_key,250,t))
-    # t = x.function_call('0xc732E8d77F3bacEC0B845535beA3a7D17fd9DBC1',
-    #                 'balanceOf',MYTOKEN_ABI,account = public_key)
-    # print(t)
+    C_ADDRESS = '0x05cC6C87A304e843F7db0CbB82C5d384D5BC8D14'
+    # t = x.create_signature(public_key,250).signature.hex()
+    # print (x.verify_signer(public_key,250,t))
+    #t = x.function_send_transaction(TOKEN_DISTRIBUTOR_CONTRACT_ADDRESS,
+    #                'approve',TOKEN_ABI,spender = TOKEN_DISTRIBUTOR_CONTRACT_ADDRESS, value = 1000000)
+    t = x.function_send_transaction(TOKEN_DISTRIBUTOR_CONTRACT_ADDRESS,
+                                                 'verifyAndDistribute',
+                                                 TOKEN_DISTRIBUTOR_ABI,
+                                                 _amount = int(fixedList[0][0]),
+                                                 _signatures = 
+                                                  [fixedList[0][2],fixedList[1][2],fixedList[2][2]])
+    logging.debug(f't:{t}')
     

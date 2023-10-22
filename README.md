@@ -29,6 +29,14 @@ Note that whenever you run the client, It automatically waits for 3 seconds and 
 
 If you want to change any configurations about nodes or client, you can change the files in these directories: `coreP2P/configs/clientConfig.py` and `coreP2P/configs/nodeConfigs.py`.
 
+For example, `PROVIDER_URL` can be changed in `clientConfig.py` directory. To connect to hardhat local test network, it can be set as :
+
+    PROTVIEDER_URL = 'http://127.0.0.1:8545'
+
+And hardhat can run with:
+    
+    $ npx hardhat node --hostname 0.0.0.0 --port 8545
+
 
 ### Hardhat Testing
 You can test the contracts using this command in local network:
