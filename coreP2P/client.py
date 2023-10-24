@@ -14,6 +14,8 @@ from libp2p.typing import TProtocol
 from utils.web3Utils import Web3Utils
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
 from utils.threadSafeList import ThreadSafeList
+from datetime import datetime
+
 PROTOCOL_ID = TProtocol("/muon/1.0.0")
 
 
@@ -28,86 +30,82 @@ class Client:
         self.__node_data = ThreadSafeList()
         self.__state = ThreadSafeList()
         trio.run(self.__state.append,'start')
-        self.__message_queue = Queue()
+        self.__message_List = ThreadSafeList()
         self.__lost_connection_node = ThreadSafeList()
-
+        self.__request_time_start= ThreadSafeList()
+        trio.run(self.__request_time_start.append,'')
 
 
 
     async def __wait_for_initating_requests(self):
         #while True:
             await trio.sleep(3)
+            await self.__request_time_start.set_item(0,datetime.utcnow().strftime('%B %d %Y - %H:%M:%S'))
             await self.__start_initiating_request_to_all_nodes()
 
-    async def __message_handler(self):
+    async def __message_and_error_handler(self):
         while True:
-            if self.__message_queue.empty():
-                await trio.sleep(0.1)
-            else:
-                msg = self.__message_queue.get()
-                try:
-                    # RES :: amount :: publickey :: signature
-                    if msg[:len('RES::')] == 'RES::' and (await self.__state.get_item(0)) == 'pending': 
-                        msg = msg.split('::')
-                        msg[1] = int(msg[1])
-                        if self.__web3Utils.verify_signer(msg[2],int(msg[1]),msg[3]):
-                            logging.debug('Message verified...')
-                            await self.__node_data.append(msg[1:])
-                            nodes_data = await self.__node_data.get_list()
-                            
-                            if len(nodes_data) >= (len(self.__addressList)-1)//2+1:
-                                counts = {}
-                                for _node in nodes_data:
-                                    counts[_node[0]] = counts.get(_node[0], 0) + 1
-                                max_count = max(counts.values())
-                                if max_count >= (len(self.__addressList)-1)//2+1:
-                                    await self.__state.set_item(0,'start')
-                                    await self.__lost_connection_node.clear()
-                                    logging.debug(f'Nodes data got and verified successfully: {nodes_data}')
-                                    try:
-                                        await self.__send_transaction_to_contract()
-                                    except Exception as e:
-                                        logging.error(f'Error in sending transaction:{e}')
-                                        
-                    elif msg[:len('ERR::')] == 'ERR::' and (await self.__state.get_item(0)) == 'pending':
-                        msg = msg.split('::')
-                        if msg[1] == '400':
-                            logging.error(f'ERROR {msg[1]}: More than half of the nodes lost connection to node with peer id {msg[2]}')
-                            await self.__lost_connection_node.append(msg[2])
-                except Exception as e:
-                    logging.error(f'Error in message handler:{e}')
+            if (await self.__state.get_item(0)) == 'pending':
+                request_time_start = await self.__request_time_start.get_item(0)
+                if (await self.__lost_connection_node.length()) >= (len(self.__addressList)-1)//2+1:
+                        await self.__state.set_item(0,'start')
+                        await self.__lost_connection_node.clear()
+                        await self.__request_time_start.set_item(0,'')
+                        logging.error(f'ERROR 403 : More than half of nodes are lost connection to other nodes. Aborting request...')
+                        continue
+                elif request_time_start != '' and \
+                (datetime.utcnow() - datetime.strptime(request_time_start,'%B %d %Y - %H:%M:%S')).seconds > MESSAGE_TIMEOUT:
+                    await self.__state.set_item(0,'start')
+                    await self.__lost_connection_node.clear()
+                    await self.__request_time_start.set_item(0,'')
+                    logging.error(f'ERROR 402 : Timeout error . Aborting request...')
+                
+                elif await self.__message_List.length() != 0:
+                    msg = await self.__message_List.get_list()
+                    msg = msg[0]
+                    await self.__message_List.remove_index(0)
+                    try:
+                        # RES :: amount :: publickey :: signature
+                        if msg[:len('RES::')] == 'RES::' and (await self.__state.get_item(0)) == 'pending': 
+                            msg = msg.split('::')
+                            msg[1] = int(msg[1])
+                            if self.__web3Utils.verify_signer(msg[2],int(msg[1]),msg[3]):
+                                logging.debug('Message verified...')
+                                await self.__node_data.append(msg[1:])
+                                nodes_data = await self.__node_data.get_list()
+                                
+                                if len(nodes_data) >= (len(self.__addressList)-1)//2+1:
+                                    counts = {}
+                                    for _node in nodes_data:
+                                        counts[_node[0]] = counts.get(_node[0], 0) + 1
+                                    max_count = max(counts.values())
+                                    if max_count >= (len(self.__addressList)-1)//2+1:
+                                        await self.__state.set_item(0,'start')
+                                        await self.__lost_connection_node.clear()
+                                        await self.__request_time_start.set_item(0,'')
+                                        logging.debug(f'Nodes data got and verified successfully: {nodes_data}')
+                                        try:
+                                            await self.__send_transaction_to_contract()
+                                        except Exception as e:
+                                            logging.error(f'Error in sending transaction:{e}',exc_info=True)
+                                            
+                        elif msg[:len('ERR::')] == 'ERR::' and (await self.__state.get_item(0)) == 'pending':
+                            msg = msg.split('::')
+                            if msg[1] == '400':
+                                logging.error(f'ERROR {msg[1]}: More than half of the nodes lost connection to node with peer id {msg[2]}')
+                                await self.__lost_connection_node.append(msg[2])
+                    except Exception as e:
+                        logging.error(f'Error in message handler:{e}')
+            await trio.sleep(0.2)
                 
             
     async def __run(self):
         async with trio.open_nursery() as nursery:
             nursery.start_soon(self.__run_server,self.__port)
             nursery.start_soon(self.__wait_for_initating_requests)
-            nursery.start_soon(self.__message_handler)
-            nursery.start_soon(self.__error_handler)
+            nursery.start_soon(self.__message_and_error_handler)
             await trio.sleep_forever()
-    
-    async def __error_handler(self):
-        while True:
-            if (await self.__state.get_item(0)) == 'pending':
-                if (await self.__lost_connection_node.length()) >= (len(self.__addressList)-1)//2+1:
-                        await self.__state.set_item(0,'start')
-                        await self.__lost_connection_node.clear()
-                        
-                        continue
-                
-                chk = False
-                for i in range(NUMBER_OF_RETRY_MESSAGE_RECEIVED):
-                    if (await self.__state.get_item(0)) == 'start':
-                        chk = True
-                        break
-                    await trio.sleep(MESSAGE_TIMEOUT)
-                if not chk:
-                    await self.__state.set_item(0,'start')
-                    await self.__lost_connection_node.clear()
-                    #logging.error(f'ERROR 402 : Timeout error . Aborting request...')
-                    
-            else:
-                await trio.sleep(0.4)
+
 
 
     def start_node(self):
@@ -130,7 +128,7 @@ class Client:
             msg = await stream.read()
             msg = msg.decode(encoding='utf-8')
             logging.debug(f'Got message: {msg}')
-            self.__message_queue.put(msg)
+            await self.__message_List.append(msg)
             await stream.close()
         except Exception as e:
             logging.error(f"Error in __echo_stream_handler: {e}")

@@ -1,5 +1,4 @@
-MESSAGE_TIMEOUT = 0.5 
-NUMBER_OF_RETRY_MESSAGE_RECEIVED = 10 #number to retry getting random number from all other nodes with MESSAGE_TIMEOUT
+MESSAGE_TIMEOUT = 10 # seconds 
 
 
 

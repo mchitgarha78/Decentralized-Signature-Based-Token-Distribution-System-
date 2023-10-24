@@ -28,6 +28,10 @@ class ThreadSafeList:
         async with self._lock:
             self._list.clear()
     
+    async def remove_index(self, index):
+        async with self._lock:
+            del self._list[index]
+    
     async def get_list(self):
         res = None
         async with self._lock:
